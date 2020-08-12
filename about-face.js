@@ -213,6 +213,8 @@ export class AboutFace {
         let dY = (updateData.y) ? updateData.y - pos.y : 0; // new Y
         let facing = pos.facing; // facing direction
 
+        if (dX == 0 && dY == 0) return;
+
         let dir = AboutFace.getRotationDegrees(dX, dY); // new way to rotate
 
         // update our new position
