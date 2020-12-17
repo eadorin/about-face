@@ -16,5 +16,6 @@
     "about-face.options.indicator-sprite.name" : "Icone Indicador",
     "about-face.options.indicator-sprite.hint" : "Mudar o icone indicador (requer reinicialização)",
     "about-face.options.indicator-sprite.choices.normal" : "Indicador Normal",
-    "about-face.options.indicator-sprite.choices.large" : "Indicador Grande"
+    "about-face.options.indicator-sprite.choices.large" : "Indicador Grande",
+    "about-face.options.indicator-sprite.choices.hex" : "Hex (with facings) Indicator"
 }
