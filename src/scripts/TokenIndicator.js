@@ -1,6 +1,8 @@
 import { SpriteID } from './SpriteID.js';
-import * as Helpers from './helpers.js';
+import { getTokenOwner, isFirstActiveGM } from './helpers.js';
 import { log, LogLevel } from './logging.js';
+import { AboutFace } from '../about-face.js';
+import flipAngles from './flipAngles.js'
 
 const MODULE_ID = 'about-face';
 const IndicatorMode = {
@@ -17,7 +19,9 @@ export class TokenIndicator {
     constructor(token, sprite = {}) {
         this.token = token;
         this.sprite = sprite;
-        this.c = new PIXI.Container();  
+        this.c = new PIXI.Container(); 
+        const flipOrRotate = token.getFlag(MODULE_ID, 'flipOrRotate') || AboutFace.flipOrRotate;
+        if (flipOrRotate !== 'rotate') token.update({lockRotation:true});
     }
 
     /* -------------------------------------------- */
@@ -26,21 +30,23 @@ export class TokenIndicator {
      * Create the indicator using the instance's indicator sprite
      * If one hasn't been specified/set, use the default
      */
-    async create(sprite = {}) {
+    async create(scene) {
         log(LogLevel.DEBUG, 'TokenIndicator create()');
-
-        if (!sprite) {
-            this.sprite = await this.generateDefaultIndicator();
-
-            // this.sprite = this.generateSpaceIndicator('',0x000000);
-            // this.sprite = this.generateStarIndicator();
-        } else {
-            if (sprite == "large-triangle") {
-                this.sprite = await this.generateTriangleIndicator('large', 0xEAFF00, 0x000000);
-            } else {
-                this.sprite = await this.generateDefaultIndicator();
+        let indicator_color = await this.indicatorColor();
+        if (AboutFace.spriteType === 0)
+            this.sprite = this.generateTriangleIndicator("normal", indicator_color, 0x000000);
+        else if (AboutFace.spriteType === 1)
+            this.sprite = this.generateTriangleIndicator("large", indicator_color, 0x000000);
+        if (AboutFace.spriteType === 2) {
+            // Only allow the Hex sprite on Hex Column scenes (gridType 4 & 5).
+            if (scene?.data.gridType >= 4) 
+                this.sprite = this.generateHexFacingsIndicator(indicator_color);  
+            else {
+                log(LogLevel.ERROR, 'TokenIndicator.create', 'hex indicator only works on hex scenes!');
+                ui.notifications.notify(`About Face: hex indicator only works on hex scenes!`, 'error');
+                return;
             }
-        }
+        }        
 
         this.sprite.zIndex = -1;
         this.sprite.position.x = this.token.w / 2;
@@ -51,26 +57,61 @@ export class TokenIndicator {
         this.c.addChild(this.sprite);
         this.token.addChild(this.c);
 
-        if (game.settings.get(MODULE_ID, 'use-indicator') !== IndicatorMode.ALWAYS || this.token.getFlag(MODULE_ID, 'indicatorDisabled'))
+        if (game.settings.get(MODULE_ID, 'indicator-state') !== IndicatorMode.ALWAYS || this.token.getFlag(MODULE_ID, 'indicatorDisabled'))
             this.sprite.visible = false;
 
+        this.rotate(this.token.data.rotation);
+
         return this;
+    }
+
+    /**
+     * Wipe the current indicator.      
+     */
+    async wipe() {
+        this.token.removeChild(this.c);
     }
 
     /* -------------------------------------------- */
 
     /**
      * Rotates the sprite
-     * @param {int|float} deg  -- rotate the sprite the specified amount
+     * @param {int|float} deg  -- rotate the sprite the specified amount. 
+     * If deg is omitted it will rotate to the current direction.
+     * 
      */
     rotate(deg) {
         log(LogLevel.DEBUG, 'TokenIndicator rotate()');
-        // token.update does not care about ._moving
-        if (game.user.isGM && !this.token.data.lockRotation) this.token.update({ rotation: deg });
+
+        if (deg == null) deg = this.token.getFlag(MODULE_ID, 'direction') || 0;
+
+        if (isFirstActiveGM()) {
+
+            let flipOrRotate = this.token.getFlag(MODULE_ID, 'flipOrRotate') || AboutFace.flipOrRotate;
+
+            if (flipOrRotate === "rotate") {
+                if (!this.token.data.lockRotation) this.token.update({ rotation: deg });
+            }
+            else {
+            
+                let facingDirection = (this.token.getFlag(MODULE_ID, 'facingDirection')) || AboutFace.facingDirection;
+
+                // todo: gridless angles (should be between angles instead)
+                
+                let angles = flipAngles[canvas.grid.type][flipOrRotate][facingDirection];
+                if (angles[deg] != null) {
+                    const update = {
+                        [angles.mirror]: angles[deg],
+                    }
+                    log(LogLevel.INFO, 'rotate', deg, angles.mirror, angles[deg]);
+                    this.token.update(update);
+                }
+            }
+        }        
         if (!this.sprite || this.token.getFlag(MODULE_ID, 'indicatorDisabled')) {
             return false;
         }
-        this.sprite.angle = deg;
+        this.sprite.angle = deg;        
         return true;
     }
 
@@ -92,7 +133,7 @@ export class TokenIndicator {
         if (!this.token.getFlag(MODULE_ID, 'indicatorDisabled'))
             this.sprite.visible = true;
     }
-
+    
     /* -------------------------------------------- */
 
     /**
@@ -108,16 +149,16 @@ export class TokenIndicator {
         return (this.sprite) ? true : false;
     }
     /* -------------------------------------------- */
-
+    
+    
     /**
-     * This is the default indicator & style. A small triangle
+     * Try to determine the indicator color based on the token owner.  Defaults to red
      */
-    async generateDefaultIndicator() {
-
+    async indicatorColor() {
         let indicator_color = colorStringToHex("FF0000");
         if (this.token.actor) {
             if (this.token.actor.hasPlayerOwner) {
-                let user = await Helpers.getTokenOwner(this.token);
+                let user = await getTokenOwner(this.token);
                 if (user.length > 0) {
                     if (user[0] != null && user[0].data.color != null) { //Bandage by Z-Machine
                         indicator_color = colorStringToHex(user[0].data.color);
@@ -125,9 +166,7 @@ export class TokenIndicator {
                 }
             }
         }
-
-        let triangle = this.generateTriangleIndicator("normal", indicator_color, 0x000000);
-        return triangle;
+        return indicator_color;
     }
 
     /**
@@ -155,7 +194,7 @@ export class TokenIndicator {
             .closePath()
             .endFill()
             .beginFill(0x000000, 0).lineStyle(0, 0x000000, 0)
-            .drawCircle(this.token.w / 2, this.token.w / 2, this.token.w * 2.5)
+            .drawCircle(this.token.w / 2, this.token.w / 2, this.token.w / 2 + modHeight)
             .endFill();
 
         let texture = canvas.app.renderer.generateTexture(i);
@@ -175,6 +214,62 @@ export class TokenIndicator {
             .drawCircle(this.token.w / 2, 500, 20)
             .endFill();
 
+        let texture = canvas.app.renderer.generateTexture(i);
+        return new SpriteID(texture, this.token.id);
+    }
+    
+    generateHexFacingsIndicator(fillColor = 0xe8FF00, borderColor = 0x000000) {
+        let i = new PIXI.Graphics();
+        let h0 = 1;
+        let padding = 12;       // Necessary pad around the hex because Foundry doesn't seem to center a hex icon exactly
+        let w0 = padding / -2;
+        let thickness = 3;
+        let alpha = 0.5;
+        let w = this.token.w + padding;
+        let h = this.token.h + padding;
+        let w3 = w / 3;
+        let w23 = w3 * 2;
+        let cos60 = 0.86602540378443864676372317075294;
+        let x = (h / 2) / cos60;
+        let wi = (w - x) / 2;
+
+        let modHeight = 40;
+        let modWidth = 16;
+
+        let red = 0xff0000;
+        let green = 0x00ff00;
+        let blue = 0x0000ff;
+
+        // to get an accurate radius of the token + indicator we need to deal with the fact
+        // that hex grids have tokens that are bigger than the grid.
+        // todo: now redundant, remove or fix
+        const ratio = canvas.grid.size / this.token.w;
+        const radius = ((this.token.w / 2) * ratio) + modHeight ;
+
+
+        i.beginFill(fillColor, .5).lineStyle(2, borderColor, 1)
+            .moveTo(this.token.w / 2, this.token.h + modHeight)
+            .lineTo(this.token.w / 2 - modWidth, this.token.h + modWidth)
+            .lineTo(this.token.w / 2 + modWidth, this.token.h + modWidth)
+            .lineTo(this.token.w / 2, this.token.h + modHeight)
+            .closePath()
+            .endFill()
+            .lineStyle(thickness, red, alpha)
+            .moveTo(wi + w0, h0)
+            .lineTo(wi + x + w0, h0)
+            .lineStyle(thickness, blue, alpha)
+            .lineTo(w + w0, (h + h0) / 2)
+            .lineStyle(thickness, green, alpha)
+            .lineTo(wi + x + w0, h + h0)
+            .lineTo(wi + w0, h + h0)
+            .lineTo(w0, (h + h0)/2)
+            .lineStyle(thickness, blue, alpha)
+            .lineTo(wi + w0, h0)
+            .closePath()
+
+            .beginFill(0x000000, 0).lineStyle(0, 0x000000, 0)
+            .drawCircle(this.token.w / 2, this.token.w / 2, radius)
+            .endFill();
         let texture = canvas.app.renderer.generateTexture(i);
         return new SpriteID(texture, this.token.id);
     }

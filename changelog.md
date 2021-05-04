@@ -1,5 +1,41 @@
 # CHANGELOG
 
+
+## [2.1.2]
+- Remove debug circles.
+
+## [2.1.1]
+### BUGFIXES
+- Fixed adding a new actor with default hex indicator crash
+
+## [2.1.0]
+### FEATURES
+- Flipping Feature has been readded. Can flip horizontal / vertical. Works on hex scenes now too.
+- Settings Overhaul. GM can set defaults on a per-scene basis and override on individual tokens.
+- Token Facing. Can set default facing direction for sprite flipping for a scene & override on tokens.
+
+### BUGFIXES
+- Fixed tokenIndicators pool not being reset between scenes
+- Fixed rotation not set on sprite creation bug
+
+## [2.0.5]
+### BUGFIXES
+- Fixed compatibility bug with FXMaster https://github.com/eadorin/about-face/issues/59
+
+## [2.0.4]
+### FEATURES
+- New Token Indicator style 'Hex' to visually indicate the front faces (green), the side faces (blue), and the back face (red) thanks to [Chris Normand](https://github.com/crnormand)!
+- Updated compatible core version to 0.7.9
+
+## [2.0.3]
+### RELEASE 
+- Per-token disable by checking 'Disable Direction Indicator' in Token config.
+- Module settings are now on a per-client basis, each user can decide have their own config.
+- Works on Hex scenes.
+- Can disable module on a per-scene basis. 
+- Dragging sets direction properly.
+- Lots of minor bug fixes due to improved implementation.
+
 ## [2.0.2]
 ### FEATURES
 - Separate 'Lock Rotation' and 'Disable Direction Indicator' settings in Token config.
