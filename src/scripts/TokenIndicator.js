@@ -26,19 +26,19 @@ export class TokenIndicator {
      * Create the indicator using the instance's indicator sprite
      * If one hasn't been specified/set, use the default
      */
-    async create(sprite = {}) {
+    async create(scene, sprite = {}) {
         log(LogLevel.DEBUG, 'TokenIndicator create()');
 
         if (!sprite) {
-            this.sprite = await this.generateDefaultIndicator();
+            this.sprite = await this.generateDefaultIndicator(scene);
 
             // this.sprite = this.generateSpaceIndicator('',0x000000);
-            // this.sprite = this.generateStarIndicator();
+            //this.sprite = await this.generateStarIndicator();
         } else {
             if (sprite == "large-triangle") {
                 this.sprite = await this.generateTriangleIndicator('large', 0xEAFF00, 0x000000);
             } else {
-                this.sprite = await this.generateDefaultIndicator();
+                this.sprite = await this.generateDefaultIndicator(scene);
             }
         }
 
@@ -112,7 +112,7 @@ export class TokenIndicator {
     /**
      * This is the default indicator & style. A small triangle
      */
-    async generateDefaultIndicator() {
+    async generateDefaultIndicator(scene) {
 
         let indicator_color = colorStringToHex("FF0000");
         if (this.token.actor) {
@@ -126,8 +126,13 @@ export class TokenIndicator {
             }
         }
 
-        let triangle = this.generateTriangleIndicator("normal", indicator_color, 0x000000);
-        return triangle;
+				var sprite;
+				let type =  game.settings.get(MODULE_ID, 'sprite-type');
+				if (type == 2 && scene?.data.gridType >= 4) 		// Hex Sprite and Hex Column scene
+					sprite = this.generateHexFacingsIndicator(indicator_color);
+				else 
+					sprite = this.generateTriangleIndicator((type == 1 ? "normal" : "large"), indicator_color, 0x000000);
+        return sprite;
     }
 
     /**
@@ -179,6 +184,56 @@ export class TokenIndicator {
         return new SpriteID(texture, this.token.id);
     }
 
+    generateHexFacingsIndicator(fillColor = 0xe8FF00, borderColor = 0x000000) {
+        let i = new PIXI.Graphics();
+				let h0 = 1;
+				let padding = 12;				// Necessary pad around the hex because Foundry doesn't seem to center a hex icon exactly
+				let w0 = padding / -2;
+				let thickness = 3;
+				let alpha = 0.5;
+        let w = this.token.w + padding;
+        let h = this.token.h + padding;
+				let w3 = w / 3;
+				let w23 = w3 * 2;
+				let cos60 = 0.86602540378443864676372317075294;
+				let x = (h / 2) / cos60;
+				let wi = (w - x) / 2;
+	
+        let modHeight = 40;
+        let modWidth = 16;
+
+				let red = 0xff0000;
+				let green = 0x00ff00;
+				let blue = 0x0000ff;
+
+        i.beginFill(fillColor, .5).lineStyle(2, borderColor, 1)
+            .moveTo(this.token.w / 2, this.token.h + modHeight)
+            .lineTo(this.token.w / 2 - modWidth, this.token.h + modWidth)
+            .lineTo(this.token.w / 2 + modWidth, this.token.h + modWidth)
+            .lineTo(this.token.w / 2, this.token.h + modHeight)
+            .closePath()
+            .endFill()
+						.lineStyle(thickness, red, alpha)
+						.moveTo(wi + w0, h0)
+						.lineTo(wi + x + w0, h0)
+						.lineStyle(thickness, blue, alpha)
+						.lineTo(w + w0, (h + h0) / 2)
+						.lineStyle(thickness, green, alpha)
+						.lineTo(wi + x + w0, h + h0)
+						.lineTo(wi + w0, h + h0)
+						.lineTo(w0, (h + h0)/2)
+						.lineStyle(thickness, blue, alpha)
+						.lineTo(wi + w0, h0)
+						.closePath()
+						
+            .beginFill(0x000000, 0).lineStyle(0, 0x000000, 0)
+            .drawCircle(this.token.w / 2, this.token.w / 2, this.token.w * 2.5)
+            .endFill();
+        let texture = canvas.app.renderer.generateTexture(i);
+        return new SpriteID(texture, this.token.id);
+    }
+
+
     generateStarIndicator(fillColor = 0xe8FF00, borderColor = 0x000000) {
         let i = new PIXI.Graphics();
         let w = this.token.w;
@@ -206,7 +261,7 @@ export class TokenIndicator {
                 370, 55,
                 430, 25
             ])
-            .drawCircle(450, 45, 60)
+ //           .drawCircle(450, 45, 60)
 
 
             .endFill();
