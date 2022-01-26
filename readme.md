@@ -1,4 +1,10 @@
 # About Face -- FoundryVTT Module
+# This repo is deprecated. Please use https://github.com/mclemente/about-face
+
+
+
+
+
 About Face is a module for FoundryVTT that changes a token's direction based on movement. It also provides optional "facing" indicators for tokens.
 
 ![Example](https://github.com/eadorin/about-face/raw/master/AboutFace-Demo.gif)
